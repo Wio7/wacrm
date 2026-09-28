@@ -53,7 +53,7 @@ export interface ClientSummary {
   tipo: "comprador" | "visitante";
 }
 
-interface ContactRow {
+export interface ContactRow {
   id: string;
   account_id: string;
   name: string | null;
@@ -244,7 +244,7 @@ function summary(contact: ContactRow, tipo: ClientSummary["tipo"]): ClientSummar
  * Comprador si tiene un plan de pagos vivo; visitante si no. Un fallo al
  * preguntarlo deja "visitante": es la vista que no promete nada.
  */
-async function resumenConTipo(db: SupabaseClient, contact: ContactRow): Promise<ClientSummary> {
+export async function resumenConTipo(db: SupabaseClient, contact: ContactRow): Promise<ClientSummary> {
   const { count, error } = await db
     .from("payment_plans")
     .select("id", { count: "exact", head: true })
@@ -285,7 +285,7 @@ async function warnAdvisor(db: SupabaseClient, contact: ContactRow) {
 // Nunca se "reclama" un contacto que ya existe: si el celular ya está en
 // el CRM, quien lo registre tendría acceso a su chat con Golden. En ese
 // caso se le dice que entre con su DNI, o —si su ficha todavía no tiene
-// DNI— que escriba por WhatsApp para que su asesor le dé acceso.
+// DNI— que pida un código a su WhatsApp (acceso-codigo.ts, 061).
 // ============================================================
 
 export type RegisterResult =
@@ -293,7 +293,7 @@ export type RegisterResult =
   | { ok: false; reason: "ya_existe" | "ya_existe_sin_dni" | "dni_en_uso" | "sin_cuenta" };
 
 /** La cuenta que recibe a los interesados: la única con el portal abierto, o la de CLIENT_SIGNUP_ACCOUNT_ID. */
-async function cuentaDeRegistro(db: SupabaseClient) {
+export async function cuentaDeRegistro(db: SupabaseClient) {
   const fija = process.env.CLIENT_SIGNUP_ACCOUNT_ID?.trim();
   let q = db
     .from("accounts")

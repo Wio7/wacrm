@@ -8,7 +8,7 @@
 // when to lock, and how session tokens are minted and stored.
 // ============================================================
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 /** Failed tries on one phone before it locks. */
 export const MAX_FAILS_PER_PHONE = 5;
@@ -117,6 +117,65 @@ export function newSessionToken(): string {
 
 export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+// ============================================================
+// Código de acceso por WhatsApp (061).
+// ============================================================
+
+/** Lo que dura un código: lo justo para cambiar de WhatsApp a la app. */
+export const ACCESS_CODE_TTL_MS = 10 * 60_000;
+/** Intentos fallidos con un mismo código antes de anularlo. */
+export const MAX_CODE_TRIES = 5;
+/** Códigos que se le mandan a un número por ventana: no se usa el
+ *  WhatsApp de Golden para llenarle el celular a nadie. */
+export const MAX_CODES_PER_PHONE = 3;
+export const CODES_WINDOW_MS = 30 * 60_000;
+/** Espera mínima entre un código y el siguiente. */
+export const CODE_RESEND_MS = 60_000;
+
+/** Seis dígitos, con el generador criptográfico. */
+export function newAccessCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+/**
+ * Hash del código atado a su contacto: el mismo "123456" de dos personas
+ * no da el mismo hash, y un hash filtrado no sirve para otra ficha.
+ */
+export function hashAccessCode(code: string, contactId: string): string {
+  return createHash("sha256").update(`${contactId}:${code}`).digest("hex");
+}
+
+/** Lo que escribió el cliente, sólo dígitos; null si no son seis. */
+export function normalizeAccessCode(input: string): string | null {
+  const digits = String(input ?? "").replace(/\D/g, "");
+  return /^[0-9]{6}$/.test(digits) ? digits : null;
+}
+
+/**
+ * Cuánto falta para poder pedir otro código, en ms (0 si ya se puede).
+ * `sent` son las fechas de los códigos pedidos para ese número.
+ */
+export function codeCooldownMs(sent: string[], now = Date.now()): number {
+  const recent = sent
+    .map((s) => Date.parse(s))
+    .filter((t) => now - t < CODES_WINDOW_MS)
+    .sort((a, b) => b - a);
+  if (!recent.length) return 0;
+  const resend = recent[0] + CODE_RESEND_MS - now;
+  const window = recent.length >= MAX_CODES_PER_PHONE
+    ? recent[MAX_CODES_PER_PHONE - 1] + CODES_WINDOW_MS - now
+    : 0;
+  return Math.max(0, resend, window);
+}
+
+/** La ventana de 24 h de WhatsApp sigue abierta desde el último mensaje del cliente. */
+export function whatsappWindowOpen(lastInbound: string | null | undefined, now = Date.now()): boolean {
+  if (!lastInbound) return false;
+  const t = Date.parse(lastInbound);
+  // Cinco minutos de margen: que el código no salga justo cuando se cierra.
+  return Number.isFinite(t) && now - t < 24 * 60 * 60_000 - 5 * 60_000;
 }
 
 /** First name for the greeting: "PEREZ ROJAS, Juan Carlos" → "Juan". */

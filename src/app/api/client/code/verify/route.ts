@@ -1,14 +1,12 @@
 // ============================================================
-// /api/client/register — un interesado nuevo se registra desde la app
+// /api/client/code/verify — entrar con el código que llegó por WhatsApp
 //
-//   POST { name, phone, dni } → { ok, token, expires_at, client }
+//   POST { phone, code, dni, name? } → { ok, token, expires_at, client }
 //
-// Público. Crea el contacto (lead_source 'app') y abre su sesión como
-// visitante, que ve la portada de venta. Si el celular ya está en el CRM
-// no crea nada: responde `ya_existe` (que entre con su DNI) o
-// `ya_existe_sin_dni` (que pida un código por WhatsApp en
-// /api/client/code). Ver
-// registerVisitor en src/lib/client-portal/sessions.ts.
+// Público. Si el código es el último pedido para ese celular, no venció y
+// no se usó, el DNI queda en la ficha que ya existía y se abre la sesión
+// sobre ella: misma conversación, mismo asesor. 5 intentos fallidos anulan
+// el código; los candados por celular e IP son los mismos del ingreso.
 // ============================================================
 
 import { NextResponse } from "next/server";
@@ -16,17 +14,18 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/flows/admin-client";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { clientIp } from "@/lib/client-portal/http";
-import { registerVisitor } from "@/lib/client-portal/sessions";
+import { entrarConCodigo } from "@/lib/client-portal/acceso-codigo";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const STATUS: Record<string, number> = {
   invalid_input: 400,
-  ya_existe: 409,
-  ya_existe_sin_dni: 409,
+  codigo_incorrecto: 401,
+  codigo_vencido: 410,
   dni_en_uso: 409,
+  ya_existe: 409,
+  no_match: 401,
   locked: 429,
   sin_cuenta: 503,
-  no_match: 401,
   server_error: 500,
 };
 
@@ -35,8 +34,8 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const rafaga = checkRateLimit(`client-register:${clientIp(request)}`, {
-    limit: 5,
+  const rafaga = checkRateLimit(`client-code-verify:${clientIp(request)}`, {
+    limit: 10,
     windowMs: 10 * 60_000,
   });
   if (!rafaga.success) return withCors(request, rateLimitResponse(rafaga));
@@ -44,11 +43,11 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const texto = (v: unknown) => (typeof v === "string" ? v : "");
 
-  const result = await registerVisitor(supabaseAdmin(), {
-    name: texto(body?.name),
+  const result = await entrarConCodigo(supabaseAdmin(), {
     phone: texto(body?.phone),
+    code: texto(body?.code),
     dni: texto(body?.dni),
-    ref: texto(body?.ref),
+    name: texto(body?.name),
     ip: clientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
