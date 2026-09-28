@@ -8,6 +8,7 @@ import {
   normalizeConversations,
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
+import { textoDeDelegacion } from "@/lib/inbox/delegacion";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { Search, ChevronDown, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -134,6 +135,26 @@ export function ConversationList({
       cancelled = true;
     };
   }, []);
+
+  // Nombres del equipo, para decir a quién se pasó cada prospecto (062).
+  const [nombres, setNombres] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("user_id, full_name");
+      if (cancelled || !data) return;
+      setNombres(
+        Object.fromEntries(
+          data.filter((p) => p.full_name).map((p) => [p.user_id as string, p.full_name as string]),
+        ),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const nombreDe = useCallback((id: string | null | undefined) => (id ? nombres[id] ?? null : null), [nombres]);
 
   // Company options are derived from the loaded conversations — there's no
   // separate companies table, and only companies with a live conversation
@@ -408,6 +429,7 @@ export function ConversationList({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
+                delegacion={textoDeDelegacion(conv, nombreDe)}
               />
             ))}
           </div>
@@ -421,12 +443,15 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
+  /** "Pasado a Alex · agendó", si el jefe de ventas ya lo pasó (062). */
+  delegacion?: string | null;
 }
 
 function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  delegacion,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || "Unknown";
@@ -490,6 +515,9 @@ function ConversationItem({
             />
           </div>
         </div>
+        {delegacion && (
+          <p className="mt-0.5 truncate text-[10px] text-primary/80">{delegacion}</p>
+        )}
       </div>
     </button>
   );

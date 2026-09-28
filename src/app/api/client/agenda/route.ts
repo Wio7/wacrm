@@ -24,6 +24,7 @@ import { bearerToken } from "@/lib/client-portal/http";
 import { resolveClientSession } from "@/lib/client-portal/sessions";
 import { guardarMensajeDelCliente } from "@/lib/client-portal/chat";
 import { diasLibres, quienAtiende, PASO_MIN } from "@/lib/agenda/slots";
+import { pasarAlAgendar } from "@/lib/agenda/delegar";
 import { notifyConversation } from "@/lib/push/send";
 import { nombreDeCita } from "@/lib/agenda/tipos";
 
@@ -151,6 +152,10 @@ export async function POST(request: Request) {
       ),
     );
   }
+
+  // Si lo estaba calificando el jefe de ventas, ya agendó: pasa al asesor
+  // con el que agendó (062).
+  await pasarAlAgendar(db, { accountId: s.accountId, contactId: s.contactId, asesorId: tramo.user_id });
 
   // Que quede en el chat y que le suene a quien la va a atender: una cita
   // que sólo vive en una tabla es una cita que alguien se pierde.

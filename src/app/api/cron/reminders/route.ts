@@ -34,6 +34,7 @@ import { nombreDeCita, tituloDeCita } from "@/lib/agenda/tipos";
 import { recordatoriosDeCuotas } from "@/lib/payment-plans/reminders";
 import { sincronizarCorreos } from "@/lib/gmail";
 import { seguimientosPendientes } from "@/lib/ai/seguimiento";
+import { pasarLasVencidas } from "@/lib/agenda/delegar";
 
 /** Ventana alrededor del objetivo, para que un pinger flojo no lo salte. */
 const MARGEN_MIN = 12;
@@ -168,11 +169,18 @@ async function correr(request: Request) {
     console.error("[cron] seguimiento failed:", err);
     return { escritos: 0, avisados: 0, motivo: "error" };
   });
+  // Y los prospectos que el jefe de ventas lleva 24 h sin pasar (062):
+  // a un asesor, para que nadie se quede sin quien lo atienda.
+  const reparto = await pasarLasVencidas(db).catch((err) => {
+    console.error("[cron] reparto failed:", err);
+    return { pasadas: 0 };
+  });
   return NextResponse.json({
     ok: true,
     avisados: { una_hora: una, media_hora: media, cuotas },
     correo,
     seguimiento,
+    reparto,
   });
 }
 

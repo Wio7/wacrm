@@ -272,14 +272,20 @@ export async function quienAtiende(
     .limit(1)
     .maybeSingle();
 
-  if (conv?.assigned_agent_id) return [conv.assigned_agent_id as string];
-
   const { data: equipo, error } = await db
     .from("profiles")
     .select("user_id, area, account_role")
     .eq("account_id", accountId);
 
-  if (error || !equipo?.length) return [];
+  // El jefe de ventas no es "quien lo atiende": lo está calificando, y la
+  // cita es con un asesor (062). Con él asignado se sigue como si nadie.
+  const esJefeDeVentas = (id: unknown) =>
+    (equipo ?? []).some((p) => p.user_id === id && p.account_role === "admin" && p.area === "ventas");
+  if (conv?.assigned_agent_id && (esCliente || !esJefeDeVentas(conv.assigned_agent_id))) {
+    return [conv.assigned_agent_id as string];
+  }
+
+  if (error || !equipo?.length) return conv?.assigned_agent_id ? [conv.assigned_agent_id as string] : [];
 
   const area = esCliente ? "cobranzas" : "ventas";
   // En ventas entran el jefe de ventas y TODOS los asesores: un asesor
@@ -289,6 +295,10 @@ export async function quienAtiende(
   const conArea = equipo.filter(
     (p) => p.area === area || (area === "ventas" && !p.area && p.account_role === "agent"),
   );
+  // En ventas, los asesores primero: el jefe sólo agenda si no hay
+  // ninguno (062).
+  const asesores = area === "ventas" ? conArea.filter((p) => p.account_role === "agent") : [];
+  if (asesores.length) return asesores.map((p) => p.user_id as string);
   if (conArea.length) return conArea.map((p) => p.user_id as string);
 
   // Nadie tiene ese cargo todavía: se ofrece la agenda de quien pueda

@@ -48,6 +48,7 @@ import { deleteAccountMedia } from "@/lib/storage/upload-media";
 import { TemplatePicker } from "./template-picker";
 import { buildReplyPreview } from "./reply-quote";
 import { toast } from "sonner";
+import { textoDeDelegacion } from "@/lib/inbox/delegacion";
 
 interface ReplyDraft {
   id: string;
@@ -814,6 +815,11 @@ export function MessageThread({
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? "Assigned")
     : "Assign";
+  // El jefe de ventas ve a quién le pasó el prospecto y por qué (062).
+  const nombreDe = (id: string | null | undefined) =>
+    profiles.find((p) => p.user_id === id)?.full_name ?? null;
+  const delegacion = textoDeDelegacion(conversation, nombreDe);
+  const delegadoPor = nombreDe(conversation.delegated_from);
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -871,6 +877,15 @@ export function MessageThread({
             <Clock className="h-3 w-3" />
             {sessionInfo.remaining}
           </Badge>
+          {delegacion && (
+            <Badge
+              variant="outline"
+              className="ml-1 hidden max-w-[14rem] truncate border-border text-[10px] text-muted-foreground md:inline-flex"
+              title={`${delegacion}${delegadoPor ? ` (lo tenía ${delegadoPor})` : ""} — ${new Date(conversation.delegated_at!).toLocaleString("es-PE")}`}
+            >
+              {delegacion}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

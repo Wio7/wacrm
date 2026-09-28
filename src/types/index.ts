@@ -194,6 +194,12 @@ export interface Conversation {
   contact_id: string;
   status: ConversationStatus;
   assigned_agent_id?: string;
+  /** Cuándo el jefe de ventas la pasó a un asesor (062). */
+  delegated_at?: string | null;
+  /** Quién la tenía antes de pasarla: el jefe de ventas. */
+  delegated_from?: string | null;
+  /** agendo · 24h · manual */
+  delegation_reason?: "agendo" | "24h" | "manual" | null;
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;

@@ -20,6 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { diasLibres, equipoQuePuedeAgendar, PASO_MIN, type DiaLibre } from "./slots";
 import { nombreDeCita } from "./tipos";
 import { notifyConversation } from "@/lib/push/send";
+import { pasarAlAgendar } from "./delegar";
 
 export const TIPOS_DE_CITA = ["videollamada", "visita", "llamada"] as const;
 export type TipoDeCita = (typeof TIPOS_DE_CITA)[number];
@@ -107,6 +108,9 @@ export async function reservarCita(
     .update({ assigned_agent_id: tramo.user_id })
     .eq("id", conversationId)
     .is("assigned_agent_id", null);
+  // Y si lo estaba calificando el jefe de ventas, ya agendó: pasa al
+  // asesor con el que agendó (062).
+  await pasarAlAgendar(db, { accountId, contactId, asesorId: tramo.user_id });
 
   const { data: contacto } = await db
     .from("contacts")
