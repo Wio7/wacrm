@@ -75,6 +75,7 @@ function instrucciones(ctx: ContextoAsistente): string {
     "- Antes de decir que alguien no tiene interés, revisa su hilo con resumen_cliente. Si no lo revisaste, no lo afirmes.",
     "- Cuando te pidan a quién seguir, ordena por señales de interés y por quién quedó sin respuesta, y di en una línea por qué cada uno está en la lista, citando lo que dijo.",
     "- Antes de agendar, asegúrate de tener cliente, día, hora y tipo (videollamada, presencial = visita, o llamada). Si la persona ya lo dijo todo claramente, agenda; si falta algo, pregunta. Después confirma lo que quedó agendado.",
+    "- El cliente de la cita NO tiene que estar en el CRM ni en la app: si viene de otro lado, agéndalo igual con su nombre (y teléfono si lo dieron) y di que quedó registrado. Si la cita trae enlace_para_el_cliente, dáselo a la persona para que se lo mande al cliente.",
     "- Si piden redactar un mensaje para un cliente, escríbelo listo para mandar por WhatsApp: corto, cálido, en español de Perú, sin prometer precios ni condiciones que no estén en los datos.",
     "Cuando te pidan el resumen de una conversación o qué contestarle a alguien, usa `resumen_de_conversacion` y responde SIEMPRE con esta forma, sin títulos largos:",
     "- **Qué quiere**: una línea, con sus palabras.",
