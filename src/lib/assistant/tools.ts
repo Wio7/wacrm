@@ -252,16 +252,33 @@ export const HERRAMIENTAS = [
     function: {
       name: "agendar_cita",
       description:
-        "Agenda una cita de quien pregunta con un cliente. Llámala SOLO cuando el cliente, el día, la hora y el tipo estén claros y la persona lo haya pedido o confirmado.",
+        "Agenda una cita de quien pregunta con un cliente. El cliente puede no estar en el CRM (viene de otro lado, un referido, un conocido): igual se agenda y queda registrado. Llámala SOLO cuando el cliente, el día, la hora y el tipo estén claros y la persona lo haya pedido o confirmado.",
       parameters: {
         type: "object",
         properties: {
-          cliente: { type: "string", description: "Nombre, teléfono o DNI del cliente." },
+          cliente: { type: "string", description: "Nombre, teléfono o DNI del cliente. Si no está en el CRM, su nombre." },
+          telefono: {
+            type: "string",
+            description: "Teléfono del cliente, si lo dieron. Sirve para encontrarlo y, si es nuevo, para registrarlo con él.",
+          },
+          cliente_nuevo: {
+            type: "boolean",
+            description:
+              "true = no es ninguno de los que ya están en el CRM: se registra con este nombre y teléfono. Úsalo cuando la búsqueda devolvió candidatos y la persona dijo que no es ninguno, o cuando ya dijo que es alguien de fuera.",
+          },
+          enlace: {
+            type: "string",
+            description: "Enlace de Zoom, Meet u otra sala, si la persona ya tiene uno. Sin enlace, la videollamada usa la sala propia.",
+          },
           inicio: {
             type: "string",
             description: "Fecha y hora de inicio en ISO 8601 con zona de Lima, p. ej. 2026-09-21T10:30:00-05:00.",
           },
-          tipo: { type: "string", enum: ["videollamada", "visita", "llamada"], description: "visita = presencial en la oficina." },
+          tipo: {
+            type: "string",
+            enum: ["videollamada", "visita", "llamada"],
+            description: "visita = presencial en la oficina; videollamada = Zoom, Meet o la sala propia; llamada = por teléfono.",
+          },
           minutos: { type: "integer", minimum: 10, maximum: 240 },
           notas: { type: "string" },
         },
@@ -1238,19 +1255,91 @@ async function horasLibres(ctx: ContextoAsistente, args: { dias?: number }): Pro
   }
 }
 
-async function agendarCita(
+interface ArgsCita {
+  cliente: string;
+  inicio: string;
+  tipo: string;
+  minutos?: number;
+  notas?: string;
+  telefono?: string;
+  cliente_nuevo?: boolean;
+  enlace?: string;
+}
+
+/**
+ * El cliente de la cita. Si ya está en el CRM, ése; si viene de otro lado
+ * (un referido, un conocido, otra inmobiliaria) se registra en el momento
+ * con lo que dieron, para que la cita tenga a quién mostrar en la agenda.
+ * El teléfono manda: si ya existe alguien con ese número, es esa persona.
+ */
+async function clienteDeLaCita(
   ctx: ContextoAsistente,
-  args: { cliente: string; inicio: string; tipo: string; minutos?: number; notas?: string },
-): Promise<Resultado> {
+  args: ArgsCita,
+): Promise<{ contacto: ContactoEncontrado; nuevo: boolean } | { datos: unknown }> {
+  const digitos = (args.telefono ?? "").replace(/\D/g, "");
+  if (digitos.length >= 6) {
+    const { uno } = await buscarContacto(ctx, digitos);
+    if (uno) return { contacto: uno, nuevo: false };
+  }
+
+  if (!args.cliente_nuevo) {
+    const { uno, varios } = await buscarContacto(ctx, args.cliente);
+    if (uno) return { contacto: uno, nuevo: false };
+    if (varios?.length) {
+      return {
+        datos: {
+          ...candidatos(varios),
+          si_no_es_ninguno:
+            "Si es otra persona, vuelve a llamar con cliente_nuevo=true (y su teléfono si lo tienen) para registrarla y agendarla.",
+        },
+      };
+    }
+  }
+
+  // Sólo números en "cliente" y sin teléfono aparte: eso es el teléfono.
+  const soloNumero = /^[\d\s+()-]+$/.test(args.cliente.trim());
+  const nombre = soloNumero ? null : args.cliente.trim().slice(0, 120) || null;
+  const telefono = digitos || (soloNumero ? args.cliente.replace(/\D/g, "") : "");
+  if (!nombre && !telefono) return { datos: { error: "Falta el nombre o el teléfono del cliente." } };
+
+  const { data, error } = await ctx.db
+    .from("contacts")
+    .insert({
+      account_id: ctx.accountId,
+      user_id: ctx.userId,
+      name: nombre,
+      // `phone` no admite nulo; vacío queda fuera del índice único (022).
+      phone: telefono,
+      lead_source: "externo",
+    })
+    .select("id, name, phone, email")
+    .single();
+  if (error) {
+    // Alguien registró ese número entre la búsqueda y ahora.
+    if ((error as { code?: string }).code === "23505" && telefono) {
+      const { uno } = await buscarContacto(ctx, telefono);
+      if (uno) return { contacto: uno, nuevo: false };
+    }
+    return { datos: { error: `No se pudo registrar al cliente: ${error.message}` } };
+  }
+  return { contacto: data as ContactoEncontrado, nuevo: true };
+}
+
+async function agendarCita(ctx: ContextoAsistente, args: ArgsCita): Promise<Resultado> {
   const cuando = Date.parse(args.inicio);
   if (Number.isNaN(cuando)) return { datos: { error: "La fecha y hora no se entendieron." } };
   if (cuando < Date.now() - 5 * 60_000) return { datos: { error: "Esa hora ya pasó." } };
 
-  const { uno, varios } = await buscarContacto(ctx, args.cliente);
-  if (!uno) return { datos: candidatos(varios) };
+  const quien = await clienteDeLaCita(ctx, args);
+  if ("datos" in quien) return { datos: quien.datos };
+  const { contacto: uno, nuevo } = quien;
 
   const tipo = ["videollamada", "visita", "llamada"].includes(args.tipo) ? args.tipo : "videollamada";
-  const sala = `golden-${uno.id.replace(/-/g, "").slice(0, 18)}`;
+  const enlace = /^https?:\/\/\S+$/i.test(args.enlace?.trim() ?? "") ? args.enlace!.trim() : null;
+  // Con un enlace propio (Zoom, Meet) no se abre la sala de Golden: el
+  // enlace va en las notas, que es lo que se ve en la agenda.
+  const sala = tipo === "videollamada" && !enlace ? `golden-${uno.id.replace(/-/g, "").slice(0, 18)}` : null;
+  const notas = [enlace ? `Enlace: ${enlace}` : "", args.notas?.trim() ?? ""].filter(Boolean).join("\n");
   const { data, error } = await ctx.db
     .from("appointments")
     .insert({
@@ -1260,8 +1349,8 @@ async function agendarCita(
       starts_at: new Date(cuando).toISOString(),
       minutes: Math.min(Math.max(Number(args.minutos) || 30, 10), 240),
       kind: tipo,
-      room: tipo === "videollamada" ? sala : null,
-      notes: args.notas?.slice(0, 500) || null,
+      room: sala,
+      notes: notas.slice(0, 500) || null,
       created_by: "equipo",
     })
     .select("id, starts_at")
@@ -1281,15 +1370,25 @@ async function agendarCita(
   }
 
   const texto = `${nombreDeCita(tipo)} el ${cuandoLima(data.starts_at as string)}`;
-  // Que le suene al cliente si tiene la app; si no, no pasa nada.
-  await notifyClient(supabaseAdmin(), {
-    contactId: uno.id,
-    title: "Golden Habitat",
-    body: `Tienes una ${texto}. La ves en la pestaña Citas.`,
-  }).catch(() => {});
+  // Que le suene al cliente si tiene la app; el recién registrado no la tiene.
+  if (!nuevo) {
+    await notifyClient(supabaseAdmin(), {
+      contactId: uno.id,
+      title: "Golden Habitat",
+      body: `Tienes una ${texto}. La ves en la pestaña Citas.`,
+    }).catch(() => {});
+  }
 
+  // El cliente de fuera no ve la app: el enlace se lo tiene que pasar el asesor.
+  const base = (process.env.NEXT_PUBLIC_VIDEO_BASE || "https://meet.jit.si").replace(/\/+$/, "");
   return {
-    datos: { ok: true, cliente: uno.name || uno.phone, cita: texto },
+    datos: {
+      ok: true,
+      cliente: uno.name || uno.phone,
+      cita: texto,
+      ...(nuevo ? { registrado_nuevo: "No estaba en el CRM: quedó registrado con esta cita." } : {}),
+      ...(enlace || sala ? { enlace_para_el_cliente: enlace || `${base}/${sala}` } : {}),
+    },
     accion: { tipo: "cita_agendada", detalle: `${uno.name || uno.phone}: ${texto}` },
   };
 }
@@ -1379,7 +1478,7 @@ export async function ejecutarHerramienta(
       case "horas_libres":
         return await horasLibres(ctx, args as { dias?: number });
       case "agendar_cita":
-        return await agendarCita(ctx, args as { cliente: string; inicio: string; tipo: string; minutos?: number; notas?: string });
+        return await agendarCita(ctx, args as unknown as ArgsCita);
       case "cuotas_atrasadas":
         return await cuotasAtrasadas(ctx);
       case "agregar_nota":
