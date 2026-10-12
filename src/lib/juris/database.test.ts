@@ -3,7 +3,7 @@ import { vector } from '@electric-sql/pglite-pgvector';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-// Las migraciones de verdad (066–070) contra un Postgres desechable
+// Las migraciones de verdad (066–071) contra un Postgres desechable
 // (WASM). De lo que ya existía sólo se montan como fixture las tablas de
 // identidad; is_super_admin e is_account_member se sacan tal cual de sus
 // migraciones, para probar contra lo que corre en producción y no contra
@@ -122,6 +122,7 @@ beforeAll(async () => {
     '068_juris_catalogo.sql',
     '069_juris_usuario.sql',
     '070_juris_temas_iniciales.sql',
+    '071_juris_ingesta.sql',
   ]) {
     await db.exec(migracion(archivo));
   }
@@ -499,6 +500,70 @@ describe.sequential('jurisprudencia: módulos y rol usuario_app', () => {
       ...TABLAS_DE_USUARIO,
     ]) {
       expect(await cuenta(`SELECT 1 FROM ${tabla}`)).toBe(0);
+    }
+  });
+});
+
+describe.sequential('jurisprudencia: cola de ingesta', () => {
+  /** Como el servidor: service-role, sin RLS. */
+  async function tomar() {
+    await db.exec('RESET ROLE');
+    try {
+      const r = await db.query<{
+        resolucion_id: string;
+        estado: string;
+        intentos: number;
+      }>('SELECT resolucion_id, estado, intentos FROM juris_tomar_job()');
+      return r.rows;
+    } finally {
+      await db.exec('SET ROLE authenticated');
+    }
+  }
+
+  it('sólo el admin de Wio ve y maneja la cola', async () => {
+    await comoWio();
+    await db.query('INSERT INTO juris_jobs (resolucion_id) VALUES ($1)', [
+      borrador,
+    ]);
+    expect(await cuenta('SELECT 1 FROM juris_jobs')).toBe(1);
+
+    for (const usuario of [cristian, golden]) {
+      await como(usuario);
+      expect(await cuenta('SELECT 1 FROM juris_jobs')).toBe(0);
+      await expect(
+        db.query('INSERT INTO juris_jobs (resolucion_id) VALUES ($1)', [
+          publicada,
+        ])
+      ).rejects.toThrow(/row-level security/);
+      await expect(db.query('SELECT juris_tomar_job()')).rejects.toThrow(
+        /permission denied/
+      );
+    }
+  });
+
+  it('un trabajo tomado no se entrega dos veces', async () => {
+    const primera = await tomar();
+    expect(primera).toEqual([
+      { resolucion_id: borrador, estado: 'procesando', intentos: 1 },
+    ]);
+    expect(await tomar()).toEqual([]);
+  });
+
+  it('se vuelve a tomar si quien lo tenía se quedó colgado', async () => {
+    await sistema(
+      "UPDATE juris_jobs SET bloqueado_hasta = now() - interval '1 minute'"
+    );
+    expect(await tomar()).toEqual([
+      { resolucion_id: borrador, estado: 'procesando', intentos: 2 },
+    ]);
+  });
+
+  it('lo terminado y lo fallido no vuelven a la cola solos', async () => {
+    for (const estado of ['listo', 'error']) {
+      await sistema(
+        `UPDATE juris_jobs SET estado = '${estado}', bloqueado_hasta = NULL`
+      );
+      expect(await tomar()).toEqual([]);
     }
   });
 });
