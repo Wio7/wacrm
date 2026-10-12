@@ -21,6 +21,7 @@ import { Ticket,
   PhoneCall,
   PhoneIncoming,
   Radio,
+  Scale,
   Settings,
   Shield,
   User,
@@ -217,7 +218,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
             {(isSuperAdmin
-              ? [...navItems, { href: "/saas-owner", label: "Administración SaaS", icon: Shield }]
+              ? [
+                  ...navItems,
+                  // El catálogo de jurisprudencia lo carga Wio; las cuentas
+                  // con el módulo lo consultan desde su app, no desde aquí.
+                  { href: "/jurisprudencia", label: "Jurisprudencia", icon: Scale },
+                  { href: "/saas-owner", label: "Administración SaaS", icon: Shield },
+                ]
               : navItems
             ).map((item) => {
               const isActive =
