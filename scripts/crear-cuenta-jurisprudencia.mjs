@@ -24,7 +24,7 @@
 //
 // Uso:
 //   JURIS_PASSWORD='...' node --env-file=.env.local \
-//     scripts/crear-cuenta-jurisprudencia.mjs "Cristian Linares" correo@ejemplo.com
+//     scripts/crear-cuenta-jurisprudencia.mjs "Christian Linares" correo@ejemplo.com
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
