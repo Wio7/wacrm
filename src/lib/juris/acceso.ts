@@ -32,3 +32,51 @@ export async function requireAdminWio(): Promise<ContextoAdmin> {
   }
   return { supabase, userId: user.id };
 }
+
+export interface ContextoJuris {
+  /** Cliente con la sesión de quien llama: RLS aplica. */
+  supabase: SupabaseClient;
+  userId: string;
+  /** La cuenta, si tiene el módulo encendido. El admin de Wio entra sin
+   *  cuenta: puede consultar el catálogo, pero no tiene favoritos,
+   *  carpetas ni alertas propios. */
+  accountId: string | null;
+}
+
+/**
+ * Quien usa la app: alguien de una cuenta con el módulo 'jurisprudencia'
+ * encendido (el rol dentro de la cuenta no importa), o el admin de Wio.
+ * La sesión llega por cookie o por `Authorization: Bearer` — que es como
+ * la manda la app móvil.
+ */
+export async function requireJuris(): Promise<ContextoJuris> {
+  const { supabase, user } = await getIncomingRequestAuth();
+  if (!user) throw new UnauthorizedError();
+
+  const cuenta = await supabase.rpc('account_with_module', {
+    p_module: 'jurisprudencia',
+  });
+  if (cuenta.error) {
+    console.error('[juris acceso] account_with_module failed:', cuenta.error);
+    throw new ForbiddenError('No se pudo comprobar el acceso');
+  }
+  if (typeof cuenta.data === 'string') {
+    return { supabase, userId: user.id, accountId: cuenta.data };
+  }
+
+  const admin = await supabase.rpc('is_super_admin');
+  if (admin.data === true) {
+    return { supabase, userId: user.id, accountId: null };
+  }
+  throw new ForbiddenError('Tu cuenta no tiene el módulo de Jurisprudencia');
+}
+
+/** Para lo que es de cada usuario (favoritos, carpetas, alertas). */
+export function cuentaDe(ctx: ContextoJuris): string {
+  if (!ctx.accountId) {
+    throw new ForbiddenError(
+      'Esto es de cada cuenta con el módulo; el administrador no tiene datos propios aquí'
+    );
+  }
+  return ctx.accountId;
+}
