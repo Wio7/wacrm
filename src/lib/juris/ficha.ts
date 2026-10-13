@@ -10,6 +10,8 @@
 
 import * as z from 'zod/v4';
 
+import { enteroALetras } from '@/lib/legal/numero-a-letras';
+
 import { pedirJson } from './modelo';
 import { FALLOS, TIPOS_RESOLUCION, type Tema } from './tipos';
 
@@ -75,6 +77,27 @@ export interface FichaVerificada {
 const aparece = (texto: string, numero: string) =>
   new RegExp(`(?<!\\d)0*${numero}(?!\\d)`).test(texto);
 
+const sinTildes = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Con qué empieza una palabra que sigue contando: si viene detrás, el
+// número del texto es otro más largo ("dos mil" dentro de "dos mil veinte").
+const SIGUE_EL_NUMERO =
+  '(?:y\\s+)?(?:un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieci|veint|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|doscient|trescient|cuatrocient|quinient|seiscient|setecient|ochocient|novecient|mil)';
+
+/**
+ * El año aparece en el texto, en cifras o en letras. Las resoluciones
+ * peruanas fechan en letras ("catorce de marzo de dos mil veintitrés"):
+ * exigir las cifras vaciaría la fecha de casi todas.
+ */
+function apareceElAnio(texto: string, anio: number): boolean {
+  if (aparece(texto, String(anio))) return true;
+  const letras = sinTildes(enteroALetras(anio)).replace(/\s+/g, '\\s+');
+  return new RegExp(
+    `(?<![a-z])${letras}(?![a-z])(?!\\s+${SIGUE_EL_NUMERO})`
+  ).test(sinTildes(texto));
+}
+
 const gruposDeDigitos = (s: string) => s.match(/\d+/g) ?? [];
 
 const limpio = (s: string | null) => {
@@ -120,7 +143,7 @@ export function verificarFicha(
     }
   }
 
-  if (ficha.anio !== null && !aparece(texto, String(ficha.anio))) {
+  if (ficha.anio !== null && !apareceElAnio(texto, ficha.anio)) {
     avisos.push(`El año ${ficha.anio} no aparece en el texto; se dejó vacío.`);
     ficha.anio = null;
   }
@@ -131,7 +154,7 @@ export function verificarFicha(
         `La fecha «${ficha.fecha}» no es una fecha válida; se dejó vacía.`
       );
       ficha.fecha = null;
-    } else if (!aparece(texto, ficha.fecha.slice(0, 4))) {
+    } else if (!apareceElAnio(texto, Number(ficha.fecha.slice(0, 4)))) {
       avisos.push(
         `El año de la fecha ${ficha.fecha} no aparece en el texto; se dejó vacía.`
       );
@@ -174,12 +197,7 @@ export async function armarFicha(
 ): Promise<FichaVerificada & { cruda: FichaIa; modelo: string }> {
   const { datos, modelo } = await pedirJson(FichaIa, {
     sistema: SISTEMA,
-    contenido: [
-      {
-        type: 'text',
-        text: `<temas>\n${listaDeTemas(temas)}\n</temas>\n\n<resolucion>\n${texto}\n</resolucion>\n\nArma la ficha de esta resolución.`,
-      },
-    ],
+    texto: `<temas>\n${listaDeTemas(temas)}\n</temas>\n\n<resolucion>\n${texto}\n</resolucion>\n\nArma la ficha de esta resolución.`,
     maxTokens: 16_000,
     esfuerzo: 'medium',
   });

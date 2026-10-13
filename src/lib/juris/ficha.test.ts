@@ -84,6 +84,37 @@ describe('verificarFicha', () => {
     expect(otra.ficha.fecha).toBeNull();
   });
 
+  it('acepta el año escrito en letras, como fechan las resoluciones', () => {
+    const texto = `CASACIÓN N.° 9876-2021 LIMA
+Lima, catorce de marzo de dos mil veintitrés.
+VISTA la causa; con lo expuesto en el dictamen de mil novecientos noventa y ocho.`;
+    const base = { numero: '9876-2021', anio: 2021, articulos: [] };
+
+    for (const fecha of ['2023-03-14', '1998-05-02']) {
+      const { ficha: f } = verificarFicha(
+        ficha({ ...base, fecha }),
+        texto,
+        SLUGS
+      );
+      expect(f.fecha).toBe(fecha);
+    }
+    // "dos mil" y "dos mil veinte" están dentro de "dos mil veintitrés",
+    // pero no son el año del texto.
+    for (const fecha of [
+      '2000-03-14',
+      '2020-03-14',
+      '2003-03-14',
+      '1990-01-01',
+    ]) {
+      const { ficha: f } = verificarFicha(
+        ficha({ ...base, fecha }),
+        texto,
+        SLUGS
+      );
+      expect(f.fecha).toBeNull();
+    }
+  });
+
   it('descarta los temas que no existen en el árbol y los repetidos', () => {
     const { ficha: f } = verificarFicha(
       ficha({
