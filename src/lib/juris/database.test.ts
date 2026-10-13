@@ -123,6 +123,7 @@ beforeAll(async () => {
     '069_juris_usuario.sql',
     '070_juris_temas_iniciales.sql',
     '071_juris_ingesta.sql',
+    '073_juris_busqueda.sql',
   ]) {
     await db.exec(migracion(archivo));
   }
@@ -565,6 +566,129 @@ describe.sequential('jurisprudencia: cola de ingesta', () => {
       );
       expect(await tomar()).toEqual([]);
     }
+  });
+});
+
+describe.sequential('jurisprudencia: búsqueda híbrida', () => {
+  const arrendamiento = '00000000-0000-0000-0000-0000000000a3';
+
+  /** Un vector de 1024 con un 1 en `eje`: dos ejes distintos quedan a
+   *  distancia 1 (lejos); el mismo eje, a distancia 0. */
+  const vector = (eje: number) =>
+    `[${Array.from({ length: 1024 }, (_, i) => (i === eje ? 1 : 0)).join(',')}]`;
+
+  async function buscar(q: string, embedding: string | null = null) {
+    const r = await db.query<{ resolucion_id: string; fragmento: string }>(
+      'SELECT resolucion_id, fragmento FROM juris_buscar($1, $2)',
+      [q, embedding]
+    );
+    return r.rows.map((f) => f.resolucion_id);
+  }
+
+  it('prepara una segunda resolución publicada y los embeddings', async () => {
+    await comoWio();
+    await db.query(
+      `INSERT INTO juris_resoluciones
+         (id, tipo, numero, anio, procedencia, sala, fecha, sumilla, criterio,
+          articulos, fallo, url_fuente, estado, revisado_por, revisado_at, publicada_at)
+       VALUES ($1, 'casacion', '555-2022', 2022, 'Arequipa', 'Sala Civil Transitoria',
+          '2023-06-01', 'Desalojo por vencimiento del contrato de arrendamiento',
+          'Vencido el plazo, el arrendatario debe restituir el bien.',
+          ARRAY['CC art. 1700'], 'infundada',
+          'https://example.test/cas-555-2022.pdf', 'publicada', $2, now(), now())`,
+      [arrendamiento, wio]
+    );
+    await db.query(
+      `INSERT INTO juris_resolucion_chunks (resolucion_id, chunk_index, content, embedding)
+       VALUES ($1, 0, 'El arrendatario no restituyó el inmueble al vencer el plazo.', $2::vector)`,
+      [arrendamiento, vector(2)]
+    );
+    await db.query(
+      'UPDATE juris_resolucion_chunks SET embedding = $2::vector WHERE resolucion_id = $1',
+      [publicada, vector(1)]
+    );
+    // El trigger mantiene los artículos como texto, para filtrar por un trozo.
+    expect(
+      await cuenta(
+        "SELECT 1 FROM juris_resoluciones WHERE articulos_texto ILIKE '%1700%'"
+      )
+    ).toBe(1);
+  });
+
+  it('por palabras: encuentra lo que trata del tema y deja fuera lo demás', async () => {
+    await como(cristian);
+    expect(await buscar('nulidad por simulación absoluta')).toEqual([
+      publicada,
+    ]);
+    expect(await buscar('arrendatarios que no restituyen')).toEqual([
+      arrendamiento,
+    ]);
+  });
+
+  it('las palabras se buscan con O: no hace falta que estén todas', async () => {
+    await como(cristian);
+    // "anticresis" no está en ninguna ficha: con Y no saldría nada. Con
+    // O sale primero la que reúne más palabras de la consulta, y detrás
+    // la que sólo comparte "contrato".
+    expect(
+      await buscar('simulación absoluta en un contrato de anticresis')
+    ).toEqual([publicada, arrendamiento]);
+    expect(await buscar('de la que')).toEqual([]);
+  });
+
+  it('el número de casación pone esa resolución primera', async () => {
+    await como(cristian);
+    expect(await buscar('casación 555-2022 simulación absoluta')).toEqual([
+      arrendamiento,
+      publicada,
+    ]);
+  });
+
+  it('por significado: encuentra sin compartir ninguna palabra, y corta lo lejano', async () => {
+    await como(cristian);
+    expect(await buscar('zzzz', vector(1))).toEqual([publicada]);
+    expect(await buscar('zzzz', vector(2))).toEqual([arrendamiento]);
+    // Un vector lejos de todo no trae "el vecino más cercano" a la fuerza.
+    expect(await buscar('zzzz', vector(9))).toEqual([]);
+  });
+
+  it('nunca devuelve una resolución sin publicar, ni al admin de Wio', async () => {
+    for (const quien of [() => como(cristian), comoWio]) {
+      await quien();
+      expect(await buscar('resolución sin revisar')).toEqual([]);
+      expect(await buscar('999-2021')).toEqual([]);
+    }
+  });
+
+  it('una cuenta sin el módulo no encuentra nada', async () => {
+    await como(golden);
+    expect(await buscar('simulación absoluta', vector(1))).toEqual([]);
+    expect(
+      await cuenta("SELECT 1 FROM juris_fragmentos('simulación', NULL)")
+    ).toBe(0);
+  });
+
+  it('los fragmentos para el asistente no los acapara una sola resolución', async () => {
+    await comoWio();
+    await db.query(
+      `INSERT INTO juris_resolucion_chunks (resolucion_id, chunk_index, content)
+       SELECT $1, n, 'La simulación absoluta, considerando ' || n
+       FROM generate_series(1, 5) n`,
+      [publicada]
+    );
+    await db.query(
+      `INSERT INTO juris_resolucion_chunks (resolucion_id, chunk_index, content)
+       VALUES ($1, 1, 'No hubo simulación en el arrendamiento.')`,
+      [arrendamiento]
+    );
+
+    await como(cristian);
+    const r = await db.query<{ resolucion_id: string }>(
+      "SELECT resolucion_id FROM juris_fragmentos('simulación absoluta', NULL, 10, 2)"
+    );
+    const deLaPrimera = r.rows.filter((f) => f.resolucion_id === publicada);
+    expect(deLaPrimera).toHaveLength(2);
+    expect(r.rows.some((f) => f.resolucion_id === arrendamiento)).toBe(true);
   });
 });
 
