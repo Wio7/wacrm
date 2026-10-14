@@ -13,6 +13,9 @@ import {
   Clock,
   CheckCircle2,
   CalendarCheck,
+  Building2,
+  TrendingUp,
+  Activity,
 } from 'lucide-react'
 
 import {
@@ -40,8 +43,20 @@ import { ActivityFeed } from '@/components/dashboard/activity-feed'
 
 type RangeDays = 7 | 30 | 90
 
+function getGreeting(name?: string | null): string {
+  const hour = new Date().getHours()
+  let saludo = 'Buenos días'
+  if (hour >= 12 && hour < 19) {
+    saludo = 'Buenas tardes'
+  } else if (hour >= 19 || hour < 6) {
+    saludo = 'Buenas noches'
+  }
+  return name ? `${saludo}, ${name}` : saludo
+}
+
 export default function DashboardPage() {
-  const { defaultCurrency } = useAuth()
+  const { defaultCurrency, profile } = useAuth()
+  const firstName = profile?.full_name ? profile.full_name.trim().split(/\s+/)[0] : null
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
 
@@ -123,64 +138,82 @@ export default function DashboardPage() {
   )
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Panel Principal</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Analíticas en vivo de conversaciones, contactos, tratos, difusiones y automatizaciones.
-        </p>
+    <div className="space-y-6">
+      {/* Header with Welcome Greeting */}
+      <div className="flex flex-col gap-1.5 border-b border-border/60 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              {getGreeting(firstName)}
+            </h1>
+            <span className="text-2xl" role="img" aria-label="Saludo">
+              👋
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Analíticas en vivo de conversaciones, contactos, tratos, difusiones y automatizaciones.
+          </p>
+        </div>
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              title="Conversaciones Activas"
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(metrics.activeConversations.previous, 'nuevas hoy vs ayer'),
-              }}
-            />
-            <MetricCard
-              title="Nuevos Contactos Hoy"
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              delta={{
-                sign:
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  'vs ayer',
-                ),
-              }}
-            />
-            <MetricCard
-              title="Valor de Tratos Abiertos"
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={`${metrics.openDealsCount} ${metrics.openDealsCount === 1 ? 'trato abierto' : 'tratos abiertos'}`}
-            />
-            <MetricCard
-              title="Mensajes Enviados Hoy"
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                  'vs ayer',
-                ),
-              }}
-            />
-          </>
-        )}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <TrendingUp className="size-4 text-primary" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Resumen General
+          </h2>
+          <div className="flex-1 border-t border-border/60" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {metricsLoading || !metrics ? (
+            Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : (
+            <>
+              <MetricCard
+                title="Conversaciones Activas"
+                value={metrics.activeConversations.current.toLocaleString()}
+                icon={MessageSquare}
+                delta={{
+                  sign: metrics.activeConversations.previous,
+                  label: deltaLabel(metrics.activeConversations.previous, 'nuevas hoy vs ayer'),
+                }}
+              />
+              <MetricCard
+                title="Nuevos Contactos Hoy"
+                value={metrics.newContactsToday.current.toLocaleString()}
+                icon={UserPlus}
+                delta={{
+                  sign:
+                    metrics.newContactsToday.current - metrics.newContactsToday.previous,
+                  label: deltaLabel(
+                    metrics.newContactsToday.current - metrics.newContactsToday.previous,
+                    'vs ayer',
+                  ),
+                }}
+              />
+              <MetricCard
+                title="Valor de Tratos Abiertos"
+                value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
+                icon={DollarSign}
+                subtitle={`${metrics.openDealsCount} ${metrics.openDealsCount === 1 ? 'trato abierto' : 'tratos abiertos'}`}
+              />
+              <MetricCard
+                title="Mensajes Enviados Hoy"
+                value={metrics.messagesSentToday.current.toLocaleString()}
+                icon={Send}
+                delta={{
+                  sign:
+                    metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                  label: deltaLabel(
+                    metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                    'vs ayer',
+                  ),
+                }}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Real estate KPI row — hidden until the account has projects/units
@@ -192,32 +225,43 @@ export default function DashboardPage() {
           metrics.realEstate.unitsSold +
           metrics.realEstate.activeReservations) >
           0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              title="Unidades Disponibles"
-              value={metrics.realEstate.unitsAvailable.toLocaleString()}
-              icon={Home}
-            />
-            <MetricCard
-              title="Unidades Reservadas"
-              value={metrics.realEstate.unitsReserved.toLocaleString()}
-              icon={Clock}
-            />
-            <MetricCard
-              title="Unidades Vendidas"
-              value={metrics.realEstate.unitsSold.toLocaleString()}
-              icon={CheckCircle2}
-            />
-            <MetricCard
-              title="Separaciones Activas"
-              value={metrics.realEstate.activeReservations.toLocaleString()}
-              icon={CalendarCheck}
-            />
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-2.5">
+              <Building2 className="size-4 text-primary" />
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Métricas Inmobiliarias
+              </h2>
+              <div className="flex-1 border-t border-border/60" />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                title="Unidades Disponibles"
+                value={metrics.realEstate.unitsAvailable.toLocaleString()}
+                icon={Home}
+              />
+              <MetricCard
+                title="Unidades Reservadas"
+                value={metrics.realEstate.unitsReserved.toLocaleString()}
+                icon={Clock}
+              />
+              <MetricCard
+                title="Unidades Vendidas"
+                value={metrics.realEstate.unitsSold.toLocaleString()}
+                icon={CheckCircle2}
+              />
+              <MetricCard
+                title="Separaciones Activas"
+                value={metrics.realEstate.activeReservations.toLocaleString()}
+                icon={CalendarCheck}
+              />
+            </div>
           </div>
         )}
 
       {/* Quick actions */}
-      <QuickActions />
+      <div className="pt-1">
+        <QuickActions />
+      </div>
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
@@ -226,29 +270,45 @@ export default function DashboardPage() {
           stretched height so their rounded borders line up. Without
           this, the pipeline card rendered at its natural (shorter)
           height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
+      <div className="space-y-3 pt-1">
+        <div className="flex items-center gap-2.5">
+          <MessageSquare className="size-4 text-primary" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Conversaciones y Embudos
+          </h2>
+          <div className="flex-1 border-t border-border/60" />
         </div>
-        <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="h-full lg:col-span-3">
+            <ConversationsChart
+              series={series}
+              loading={seriesLoading}
+              range={range}
+              onRangeChange={handleRangeChange}
+            />
+          </div>
+          <div className="h-full lg:col-span-2">
+            <PipelineDonut
+              data={pipeline}
+              loading={pipelineLoading}
+              currency={defaultCurrency}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
+      {/* Operations & Activity */}
+      <div className="space-y-4 pt-1">
+        <div className="flex items-center gap-2.5">
+          <Activity className="size-4 text-primary" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Operaciones y Actividad Reciente
+          </h2>
+          <div className="flex-1 border-t border-border/60" />
+        </div>
+        <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
+        <ActivityFeed items={activity} loading={activityLoading} />
+      </div>
     </div>
   )
 }

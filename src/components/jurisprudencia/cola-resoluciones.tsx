@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FileText,
   FileUp,
+  FolderSearch,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -290,14 +292,43 @@ export function ColaResoluciones() {
       </div>
 
       {cargando ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="text-muted-foreground size-6 animate-spin" />
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <Loader2 className="text-primary size-7 animate-spin" />
+          <p className="text-xs text-muted-foreground">Cargando resoluciones...</p>
         </div>
       ) : visibles.length === 0 ? (
-        <div className="border-border text-muted-foreground rounded-xl border border-dashed py-16 text-center text-sm">
-          {filas.length === 0
-            ? 'Aún no hay resoluciones. Sube los PDFs de las casaciones o plenos para empezar.'
-            : 'No hay resoluciones en este estado.'}
+        <div className="border-border/80 bg-card/40 rounded-2xl border border-dashed py-16 px-6 text-center animate-in fade-in-0 duration-200">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-xs mb-4">
+            {filas.length === 0 ? (
+              <FileText className="size-7" />
+            ) : (
+              <FolderSearch className="size-7" />
+            )}
+          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            {filas.length === 0
+              ? 'No hay resoluciones registradas'
+              : 'Sin resultados en este estado'}
+          </h3>
+          <p className="mt-1.5 max-w-md mx-auto text-sm text-muted-foreground leading-relaxed">
+            {filas.length === 0
+              ? 'Aún no has cargado documentos. Sube los archivos PDF de resoluciones, casaciones o plenos jurisdiccionales para que la IA los procese automáticamente.'
+              : 'No se encontraron resoluciones con el filtro seleccionado. Puedes cambiar de filtro o subir nuevos expedientes.'}
+          </p>
+          {filas.length === 0 && (
+            <div className="mt-5">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => entrada.current?.click()}
+                disabled={subiendo !== null}
+                className="gap-2 font-medium"
+              >
+                <FileUp className="size-4" />
+                Subir primeros PDFs
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="border-border overflow-x-auto rounded-xl border">

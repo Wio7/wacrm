@@ -91,17 +91,17 @@ export function BotonInstalar({ className = '' }: { className?: string }) {
     <>
       <button
         onClick={instalar}
-        className={`inline-flex items-center gap-1.5 rounded-full bg-indigo-700 px-3 py-1.5 text-sm font-semibold text-white active:bg-indigo-800 ${className}`}
+        className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs shadow-indigo-600/20 hover:from-indigo-500 hover:to-indigo-600 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 ${className}`}
       >
         <Download className="size-4" />
-        Descargar app
+        <span>Descargar app</span>
       </button>
       {ayuda && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/40 sm:items-center sm:justify-center"
+          className="fixed inset-0 z-50 flex items-end bg-black/40 backdrop-blur-xs sm:items-center sm:justify-center p-0 sm:p-4"
           onClick={() => setAyuda(false)}
         >
-          <div className="w-full rounded-t-2xl bg-white p-6 text-slate-800 sm:max-w-sm sm:rounded-2xl">
+          <div className="w-full rounded-t-3xl bg-white p-6 text-slate-800 sm:max-w-sm sm:rounded-3xl shadow-xl">
             <h2 className="text-lg font-bold">Instalar en iPhone</h2>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px]">
               <li>
@@ -120,7 +120,7 @@ export function BotonInstalar({ className = '' }: { className?: string }) {
                 marcarInstalada();
                 setVisible(false);
               }}
-              className="mt-5 w-full rounded-xl bg-indigo-700 px-4 py-3 font-semibold text-white"
+              className="mt-5 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-3 font-semibold text-white shadow-sm shadow-indigo-600/20 hover:from-indigo-500 hover:to-indigo-600 active:scale-[0.99] transition-all"
             >
               Ya la agregué
             </button>
