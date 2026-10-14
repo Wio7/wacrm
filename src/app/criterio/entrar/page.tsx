@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { BotonInstalar } from '@/components/criterio/instalar';
 import { boton, campo } from '@/components/criterio/marco';
 import { createClient } from '@/lib/supabase/client';
 
@@ -63,6 +64,9 @@ export default function Entrar() {
           {cargando ? 'Entrando…' : 'Entrar'}
         </button>
       </form>
+      <div className="mt-6 flex justify-center">
+        <BotonInstalar />
+      </div>
     </div>
   );
 }

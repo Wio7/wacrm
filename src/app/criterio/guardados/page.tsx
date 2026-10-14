@@ -29,7 +29,9 @@ export default function Guardados() {
             aquí.
           </p>
         )}
-        {lista?.map((r) => <Tarjeta key={r.id} r={r} />)}
+        {lista?.map((r) => (
+          <Tarjeta key={r.id} r={r} />
+        ))}
       </div>
     </Marco>
   );

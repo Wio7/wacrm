@@ -1,4 +1,5 @@
 {
+  "id": "/criterio",
   "name": "Criterio",
   "short_name": "Criterio",
   "description": "Jurisprudencia peruana en tu celular.",
@@ -7,5 +8,8 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#ffffff",
-  "icons": [{ "src": "/logo.png", "sizes": "512x512", "type": "image/png" }]
+  "icons": [
+    { "src": "/criterio-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/criterio-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
 }

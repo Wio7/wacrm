@@ -24,7 +24,7 @@ const FALLO: Record<string, string> = {
 function Bloque({ t, children }: { t: string; children: React.ReactNode }) {
   return (
     <section className="mt-5">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
         {t}
       </h2>
       <div className="mt-1 text-[15px] leading-relaxed text-slate-800">

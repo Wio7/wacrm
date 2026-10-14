@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: { absolute: 'Criterio' },
   description: 'Jurisprudencia peruana en tu celular.',
   manifest: '/criterio.webmanifest',
+  icons: { icon: '/criterio-192.png', apple: '/criterio-192.png' },
   appleWebApp: { capable: true, title: 'Criterio', statusBarStyle: 'default' },
 };
 

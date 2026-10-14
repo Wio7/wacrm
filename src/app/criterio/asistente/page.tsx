@@ -17,7 +17,7 @@ interface Respuesta {
 function Texto({ texto, citas }: { texto: string; citas: Cita[] }) {
   const porId = new Map(citas.map((c) => [c.id, c]));
   return (
-    <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
+    <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-slate-800">
       {texto.split(/(\[RES:[^\]]+\])/).map((parte, i) => {
         const id = parte.match(/^\[RES:([^\]]+)\]$/)?.[1];
         if (!id) return parte;

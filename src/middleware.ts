@@ -70,7 +70,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // La app del celular (Criterio) tiene su propia pantalla de entrada.
-  const enCriterio = request.nextUrl.pathname.startsWith('/criterio')
+  const enCriterio =
+    request.nextUrl.pathname === '/criterio' ||
+    request.nextUrl.pathname.startsWith('/criterio/')
   const entradaCriterio = request.nextUrl.pathname === '/criterio/entrar'
   if (enCriterio && !entradaCriterio && !user) {
     const url = request.nextUrl.clone()
