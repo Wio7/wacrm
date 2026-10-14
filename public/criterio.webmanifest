@@ -1,0 +1,11 @@
+{
+  "name": "Criterio",
+  "short_name": "Criterio",
+  "description": "Jurisprudencia peruana en tu celular.",
+  "start_url": "/criterio",
+  "scope": "/criterio",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#ffffff",
+  "icons": [{ "src": "/logo.png", "sizes": "512x512", "type": "image/png" }]
+}

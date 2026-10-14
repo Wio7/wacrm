@@ -69,6 +69,21 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
+  // La app del celular (Criterio) tiene su propia pantalla de entrada.
+  const enCriterio = request.nextUrl.pathname.startsWith('/criterio')
+  const entradaCriterio = request.nextUrl.pathname === '/criterio/entrar'
+  if (enCriterio && !entradaCriterio && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/criterio/entrar'
+    url.search = ''
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+  if (entradaCriterio && user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/criterio'
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   // Protected pages - redirect to login if not authenticated
   const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
