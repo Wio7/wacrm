@@ -62,6 +62,6 @@ export function Marco({
 }
 
 export const campo =
-  'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100';
+  'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100';
 export const boton =
   'w-full rounded-xl bg-indigo-700 px-4 py-3 text-base font-semibold text-white disabled:opacity-50 active:bg-indigo-800';
