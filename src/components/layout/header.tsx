@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { CommandPalette } from "@/components/layout/command-palette";
 
 interface PageMeta {
   title: string;
@@ -130,6 +131,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2">
+        <CommandPalette />
         <ModeToggle />
 
         <DropdownMenu>
