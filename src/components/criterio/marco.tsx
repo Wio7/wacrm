@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BotonInstalar } from './instalar';
-import { Bookmark, ChevronLeft, MessageSquare, Search, User } from 'lucide-react';
+import { Bookmark, ChevronLeft, MessageSquare, Scale, Search, User } from 'lucide-react';
 
 const PESTANAS = [
   { href: '/criterio', label: 'Buscar', Icono: Search },
@@ -41,19 +41,19 @@ export function Marco({
         className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-slate-200/80 bg-white/70 p-5 backdrop-blur-xl shadow-xs md:flex"
       >
         <div className="mb-7 flex items-center gap-3 px-2">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-lg font-bold text-white shadow-md shadow-indigo-600/20 ring-1 ring-white/30 transition-transform duration-200 hover:scale-105">
-            C
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-white shadow-md shadow-indigo-600/20 ring-1 ring-white/30 transition-transform duration-200 hover:scale-105">
+            <Scale className="size-5" />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-bold tracking-tight text-slate-900">
-                Criterio
+              <span className="text-xl font-black tracking-tight text-slate-900">
+                Juri<span className="text-indigo-600">Pro</span>App
               </span>
               <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-indigo-700 uppercase">
                 Legal
               </span>
             </div>
-            <span className="text-xs text-slate-400">Jurisprudencia al instante</span>
+            <span className="text-xs text-slate-400">Jurisprudencia y Asistente IA</span>
           </div>
         </div>
 

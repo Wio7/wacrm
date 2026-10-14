@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
-  title: { absolute: 'Criterio' },
-  description: 'Jurisprudencia peruana en tu celular.',
+  title: { absolute: 'JuriProApp — Jurisprudencia y Asistente Legal' },
+  description: 'Plataforma inteligente de jurisprudencia peruana, casaciones y asistente de IA en tu celular y web.',
   manifest: '/criterio.webmanifest',
   icons: { icon: '/criterio-192.png', apple: '/criterio-192.png' },
-  appleWebApp: { capable: true, title: 'Criterio', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'JuriProApp', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
